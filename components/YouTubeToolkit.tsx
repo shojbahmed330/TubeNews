@@ -35,14 +35,14 @@ const YouTubeToolkit: React.FC<YouTubeToolkitProps> = ({ state, onAssetsGenerate
       const data = JSON.parse(textResponse.text);
       onAssetsGenerated(data);
 
-      // 2. Generate Attractive AI Thumbnail (Improved Prompt for Visuals)
+      // 2. Generate Attractive AI Thumbnail (High Impact, No Broken Text)
       const parts: any[] = [
-        { text: `Create an ultra-high-quality, professional, viral 16:9 YouTube thumbnail background based on: "${state.title1} ${state.title2}".
-        CRITICAL INSTRUCTION: DO NOT INCLUDE ANY TEXT, LETTERS, WORDS, OR GIBBERISH CHARACTERS IN THE IMAGE.
+        { text: `Create an ultra-high-quality, professional, viral 16:9 YouTube thumbnail background based on the themes: "${state.title1} ${state.title2}".
+        CRITICAL INSTRUCTION: DO NOT INCLUDE ANY TEXT, LETTERS, WORDS, OR GIBBERISH CHARACTERS IN THE IMAGE. 
         STYLE: Cinematic, high-contrast, dramatic lighting (rim light), vibrant saturated colors. 
-        COMPOSITION: Focus on the subjects provided in the images. The background should be a blurred high-stakes environment (like a dark studio, a political rally, or an abstract digital grid). 
-        The mood should be intense, mysterious, and click-worthy. Look like a top-tier documentary or news analysis channel.
-        Theme: ${state.bgTheme}.` }
+        COMPOSITION: Focus on creating a high-stakes dramatic scene. The mood should be intense, mysterious, and click-worthy (Clickbait style). 
+        The background should look like a top-tier documentary or trending news channel's visual asset.
+        Theme color: ${state.bgTheme}.` }
       ];
 
       // Include speaker images if they exist for better AI context
@@ -126,7 +126,7 @@ const YouTubeToolkit: React.FC<YouTubeToolkitProps> = ({ state, onAssetsGenerate
               Download Thumbnail
             </a>
           </div>
-          <p className="text-xs text-slate-500 italic">Note: Text is intentionally omitted from the image to prevent font errors. Use a photo editor to add custom Bengali text if needed.</p>
+          <p className="text-xs text-slate-500 italic">Note: Text is intentionally omitted from the background to prevent font errors. You can add custom Bengali text over this image for best results.</p>
         </div>
       )}
 
