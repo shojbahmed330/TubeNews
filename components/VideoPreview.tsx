@@ -32,14 +32,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ state, onGenerationComplete
   const audioChunksRef = useRef<Blob[]>([]);
   const startTimeRef = useRef<number>(Date.now());
 
-  // Image cache refs to prevent performance issues
   const leftImgRef = useRef<HTMLImageElement | null>(null);
   const rightImgRef = useRef<HTMLImageElement | null>(null);
 
   const WIDTH = 1280;
   const HEIGHT = 720;
 
-  // Sync images to refs when they change
   useEffect(() => {
     if (state.speakerLeft.image) {
       const img = new Image();
@@ -445,15 +443,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ state, onGenerationComplete
     <div className="w-full h-full flex flex-col relative">
       <canvas ref={canvasRef} className="w-full h-full object-contain" />
       <audio ref={audioRef} src={state.audioUrl || undefined} crossOrigin="anonymous" />
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-black/70 backdrop-blur-3xl p-5 rounded-[2.5rem] border border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.5)] scale-90 lg:scale-100 transition-all hover:scale-105">
-        <button onClick={togglePlayback} className="p-4 bg-white/5 hover:bg-white/10 rounded-2xl text-white transition-all active:scale-90" disabled={!state.audioUrl || isRecording}>
+      <div className="absolute bottom-4 lg:bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 lg:gap-6 bg-black/80 backdrop-blur-3xl p-3 lg:p-5 rounded-[2rem] lg:rounded-[2.5rem] border border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.5)] scale-90 lg:scale-100 transition-all hover:scale-105 max-w-[95vw]">
+        <button onClick={togglePlayback} className="p-3 lg:p-4 bg-white/5 hover:bg-white/10 rounded-xl lg:rounded-2xl text-white transition-all active:scale-90" disabled={!state.audioUrl || isRecording}>
           {isPlaying ? (
-            <svg className="h-8 w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            <svg className="h-6 w-6 lg:h-8 lg:w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
           ) : (
-            <svg className="h-8 w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg className="h-6 w-6 lg:h-8 lg:w-8" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           )}
         </button>
-        <button onClick={startRecording} disabled={!state.audioUrl || isRecording} className={`relative px-12 py-5 rounded-2xl font-black text-base uppercase tracking-[0.2em] transition-all overflow-hidden group active:scale-95 ${isRecording ? 'bg-red-600 text-white animate-pulse' : 'bg-blue-600 text-white hover:bg-blue-500 shadow-[0_0_30px_rgba(37,99,235,0.6)]'}`}>
+        <button onClick={startRecording} disabled={!state.audioUrl || isRecording} className={`relative px-6 lg:px-12 py-3 lg:py-5 rounded-xl lg:rounded-2xl font-black text-xs lg:text-base uppercase tracking-[0.1em] lg:tracking-[0.2em] transition-all overflow-hidden group active:scale-95 whitespace-nowrap ${isRecording ? 'bg-red-600 text-white animate-pulse' : 'bg-blue-600 text-white hover:bg-blue-500 shadow-[0_0_30px_rgba(37,99,235,0.6)]'}`}>
           <span className="relative z-10">{isRecording ? "Recording..." : "Export Video"}</span>
           {!isRecording && <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>}
         </button>
