@@ -1,0 +1,8 @@
+{
+  "name": "Vercel Image with YouTube Podcast Video Creator",
+  "description": "Create professional YouTube podcast-style videos with dual speaker images, custom titles, and synced audio waveforms.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
