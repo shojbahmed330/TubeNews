@@ -1,7 +1,7 @@
 
-import React, { useRef, useState } from 'react';
-import { VideoState, YoutubeAssets, BgTheme } from '../types';
-import { GoogleGenAI } from "@google/genai";
+import React, { useState } from 'react';
+import { VideoState, YoutubeAssets } from '../types';
+import { GoogleGenAI, Type } from "@google/genai";
 
 interface YouTubeToolkitProps {
   state: VideoState;
@@ -15,57 +15,67 @@ const YouTubeToolkit: React.FC<YouTubeToolkitProps> = ({ state, onAssetsGenerate
   const generateAIContent = async () => {
     setLoading(true);
     try {
+      // Create new instance to ensure latest API key is used
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
-      // 1. Generate Metadata (Titles, Bangla Description, Tags)
-      const textPrompt = `Based on the video title "${state.title1} ${state.title2}", generate the following for a viral YouTube video:
+      // 1. Generate Metadata with strict Schema for reliability
+      const textPrompt = `Based on the video title "${state.title1} ${state.title2}", generate:
       1. 5 attractive trending titles in a mix of Bangla and English.
-      2. A long professional SEO-friendly description (approx 200 words) written ENTIRELY in Bangla language (Bengali font).
-      3. 15 relevant hashtags starting with #.
-      4. The same hashtags/keywords but separated only by commas, WITHOUT any # sign.
-      
-      Return the response in JSON format with keys: "titles" (array), "description" (string), "hashtags" (string), "keywords" (string).`;
+      2. A long professional SEO-friendly description (approx 200 words) in Bangla.
+      3. 15 relevant hashtags with #.
+      4. Keywords separated by commas (no #).`;
 
       const textResponse = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: textPrompt,
-        config: { responseMimeType: "application/json" }
+        config: { 
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              titles: { type: Type.ARRAY, items: { type: Type.STRING } },
+              description: { type: Type.STRING },
+              hashtags: { type: Type.STRING },
+              keywords: { type: Type.STRING }
+            },
+            required: ["titles", "description", "hashtags", "keywords"]
+          }
+        }
       });
 
-      const data = JSON.parse(textResponse.text);
-      onAssetsGenerated(data);
+      if (textResponse.text) {
+        const data = JSON.parse(textResponse.text);
+        onAssetsGenerated(data);
+      }
 
-      // 2. Generate Attractive AI Thumbnail (High Impact, No Broken Text)
-      const parts: any[] = [
-        { text: `Create an ultra-high-quality, professional, viral 16:9 YouTube thumbnail background based on the themes: "${state.title1} ${state.title2}".
-        CRITICAL INSTRUCTION: DO NOT INCLUDE ANY TEXT, LETTERS, WORDS, OR GIBBERISH CHARACTERS IN THE IMAGE. 
-        STYLE: Cinematic, high-contrast, dramatic lighting (rim light), vibrant saturated colors. 
-        COMPOSITION: Focus on creating a high-stakes dramatic scene. The mood should be intense, mysterious, and click-worthy (Clickbait style). 
-        The background should look like a top-tier documentary or trending news channel's visual asset.
-        Theme color: ${state.bgTheme}.` }
+      // 2. Generate Thumbnail Image
+      const imageParts: any[] = [
+        { text: `A professional, high-impact 16:9 YouTube thumbnail background for a video titled: "${state.title1} ${state.title2}". 
+        Theme: ${state.bgTheme}. Visuals: Intense, cinematic, documentary style, vibrant lighting. 
+        IMPORTANT: ABSOLUTELY NO TEXT OR CHARACTERS IN THE IMAGE.` }
       ];
 
-      // Include speaker images if they exist for better AI context
-      if (state.speakerLeft.image) {
-        parts.push({
+      // Add speaker images if available
+      if (state.speakerLeft.image?.startsWith('data:image')) {
+        imageParts.push({
           inlineData: {
             data: state.speakerLeft.image.split(',')[1],
-            mimeType: 'image/png'
+            mimeType: state.speakerLeft.image.split(';')[0].split(':')[1]
           }
         });
       }
-      if (state.speakerRight.image) {
-        parts.push({
+      if (state.speakerRight.image?.startsWith('data:image')) {
+        imageParts.push({
           inlineData: {
             data: state.speakerRight.image.split(',')[1],
-            mimeType: 'image/png'
+            mimeType: state.speakerRight.image.split(';')[0].split(':')[1]
           }
         });
       }
 
       const imgResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
-        contents: { parts },
+        contents: { parts: imageParts },
         config: {
           imageConfig: {
             aspectRatio: "16:9"
@@ -73,15 +83,19 @@ const YouTubeToolkit: React.FC<YouTubeToolkitProps> = ({ state, onAssetsGenerate
         }
       });
 
-      for (const part of imgResponse.candidates[0].content.parts) {
-        if (part.inlineData) {
-          setThumbnailUrl(`data:image/png;base64,${part.inlineData.data}`);
-        }
+      const firstImagePart = imgResponse.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+      if (firstImagePart?.inlineData) {
+        setThumbnailUrl(`data:${firstImagePart.inlineData.mimeType};base64,${firstImagePart.inlineData.data}`);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Generation failed:", error);
-      alert("Failed to generate AI assets. Please check your connection and try again.");
+      // Detailed error handling for key issues
+      if (error.message?.includes("entity was not found")) {
+        alert("API Key error. Please re-configure your API Key in Vercel.");
+      } else {
+        alert("Failed to generate AI assets. Please ensure your API Key is valid and try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -102,7 +116,7 @@ const YouTubeToolkit: React.FC<YouTubeToolkitProps> = ({ state, onAssetsGenerate
         <button 
           onClick={generateAIContent}
           disabled={loading}
-          className={`px-8 py-3 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 ${loading ? 'bg-slate-700 text-slate-400' : 'bg-red-600 hover:bg-red-700 text-white hover:scale-105 active:scale-95'}`}
+          className={`px-8 py-3 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2 ${loading ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white hover:scale-105 active:scale-95'}`}
         >
           {loading ? (
             <>
@@ -110,7 +124,7 @@ const YouTubeToolkit: React.FC<YouTubeToolkitProps> = ({ state, onAssetsGenerate
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              AI Generating...
+              AI Thinking...
             </>
           ) : "Generate AI Thumbnail & SEO Assets"}
         </button>
@@ -118,15 +132,16 @@ const YouTubeToolkit: React.FC<YouTubeToolkitProps> = ({ state, onAssetsGenerate
 
       {thumbnailUrl && (
         <div className="mb-8 space-y-4 animate-in fade-in zoom-in duration-500">
-          <label className="text-sm font-bold text-slate-400 block">AI Generated Trending Thumbnail</label>
-          <div className="relative aspect-video w-full max-w-2xl rounded-2xl overflow-hidden border-4 border-slate-700 shadow-2xl">
+          <label className="text-sm font-bold text-slate-400 block">AI Generated Background</label>
+          <div className="relative aspect-video w-full max-w-2xl rounded-2xl overflow-hidden border-4 border-slate-700 shadow-2xl group">
             <img src={thumbnailUrl} className="w-full h-full object-cover" alt="AI Thumbnail" />
-            <a href={thumbnailUrl} download="ai-youtube-thumbnail.png" className="absolute bottom-4 right-4 bg-red-600 text-white px-6 py-2 rounded-xl font-bold shadow-xl hover:bg-red-500 transition-colors flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-              Download Thumbnail
-            </a>
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <a href={thumbnailUrl} download="ai-background.png" className="bg-white text-black px-6 py-2 rounded-xl font-bold shadow-xl hover:bg-slate-200 transition-colors flex items-center gap-2">
+                Download Image
+              </a>
+            </div>
           </div>
-          <p className="text-xs text-slate-500 italic">Note: Text is intentionally omitted from the background to prevent font errors. You can add custom Bengali text over this image for best results.</p>
+          <p className="text-xs text-slate-500 italic">Pro Tip: Add your own Bengali text over this professional background for maximum CTR.</p>
         </div>
       )}
 
@@ -134,14 +149,14 @@ const YouTubeToolkit: React.FC<YouTubeToolkitProps> = ({ state, onAssetsGenerate
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Top 5 Trending Titles</label>
-              <button onClick={() => copyToClipboard(state.ytAssets!.titles.join('\n'))} className="text-xs text-blue-400 hover:text-blue-300 font-bold uppercase">Copy All</button>
+              <label className="text-sm font-bold text-slate-400 uppercase">Suggested Titles</label>
+              <button onClick={() => copyToClipboard(state.ytAssets!.titles.join('\n'))} className="text-xs text-blue-400 hover:underline">Copy All</button>
             </div>
             <div className="space-y-2">
               {state.ytAssets.titles.map((t, i) => (
-                <div key={i} className="flex justify-between items-center bg-slate-900/80 p-3 rounded-xl text-sm group border border-slate-800 hover:border-slate-600 transition-colors">
+                <div key={i} className="flex justify-between items-center bg-slate-900/60 p-3 rounded-xl text-sm border border-slate-700/50">
                   <span className="font-medium">{t}</span>
-                  <button onClick={() => copyToClipboard(t)} className="opacity-0 group-hover:opacity-100 p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-all">
+                  <button onClick={() => copyToClipboard(t)} className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
                   </button>
                 </div>
@@ -151,30 +166,24 @@ const YouTubeToolkit: React.FC<YouTubeToolkitProps> = ({ state, onAssetsGenerate
 
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Bangla SEO Description</label>
-              <button onClick={() => copyToClipboard(state.ytAssets!.description)} className="text-xs text-blue-400 hover:text-blue-300 font-bold uppercase">Copy Description</button>
+              <label className="text-sm font-bold text-slate-400 uppercase">Bangla SEO Description</label>
+              <button onClick={() => copyToClipboard(state.ytAssets!.description)} className="text-xs text-blue-400 hover:underline">Copy</button>
             </div>
-            <div className="bg-slate-900/80 p-5 rounded-xl text-sm leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap border border-slate-800 font-['Hind_Siliguri']">
+            <div className="bg-slate-900/60 p-4 rounded-xl text-sm leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap border border-slate-700/50 font-['Hind_Siliguri']">
               {state.ytAssets.description}
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Viral Hashtags (#)</label>
-                <button onClick={() => copyToClipboard(state.ytAssets!.hashtags)} className="text-xs text-blue-400 hover:text-blue-300 font-bold uppercase">Copy</button>
-              </div>
-              <div className="bg-slate-900/80 p-4 rounded-xl text-xs break-words border border-slate-800 text-blue-300 leading-6">
+              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Hashtags</label>
+              <div className="bg-slate-900/60 p-3 rounded-xl text-xs text-blue-300 border border-slate-700/50">
                 {state.ytAssets.hashtags}
               </div>
             </div>
             <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Keywords (Comma separated)</label>
-                <button onClick={() => copyToClipboard(state.ytAssets!.keywords)} className="text-xs text-blue-400 hover:text-blue-300 font-bold uppercase">Copy</button>
-              </div>
-              <div className="bg-slate-900/80 p-4 rounded-xl text-xs break-words border border-slate-800 text-slate-300 leading-6">
+              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Tags/Keywords</label>
+              <div className="bg-slate-900/60 p-3 rounded-xl text-xs text-slate-300 border border-slate-700/50">
                 {state.ytAssets.keywords}
               </div>
             </div>
